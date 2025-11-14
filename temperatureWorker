@@ -1,0 +1,142 @@
+// 温度计算Worker - Node.js
+
+const { parentPort, isMainThread } = require("worker_threads");
+
+/**
+ * 计算方块环境温度修正值
+ * @param {Object} playerData - 玩家数据
+ * @param {Object} config - 配置信息
+ * @returns {Promise<number>} 方块温度修正值
+ */
+function calculateBlockModifier(playerData, config) {
+  return new Promise((resolve) => {
+    const { x, y, z, dimension } = playerData.position;
+    const batchSize = config.batchSize || 20;
+    const maxDistance = config.maxDistance || 10;
+    const temperatureRanges = config.temperatureRanges || {};
+    const distanceCurveType = config.distanceCurveType || "log";
+
+    // 初始化环境状态
+    let isInLava = false;
+    let isInWaterOrRain = false;
+    let isInSnowyBiome = false;
+    let isNearHighTempBlocks = false;
+
+    // 生成需要检查的方块坐标
+    const coordinates = [];
+    for (let dx = -maxDistance; dx <= maxDistance; dx++) {
+      for (let dy = -maxDistance; dy <= maxDistance; dy++) {
+        for (let dz = -maxDistance; dz <= maxDistance; dz++) {
+          const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+          if (distance <= maxDistance) {
+            coordinates.push({
+              x: Math.floor(x) + dx,
+              y: Math.floor(y) + dy,
+              z: Math.floor(z) + dz,
+              distance,
+            });
+          }
+        }
+      }
+    }
+
+    // 分批次处理方块
+    let batchIndex = 0;
+    let totalContribution = 0;
+    const blockTypeContributions = {};
+
+    function processNextBatch() {
+      const startIdx = batchIndex * batchSize;
+      const endIdx = Math.min(startIdx + batchSize, coordinates.length);
+      const batch = coordinates.slice(startIdx, endIdx);
+      batch.forEach((coord) => {
+        // 计算方块的温度贡献
+        if (temperatureRanges[blockType]) {
+          const baseContribution = temperatureRanges[blockType];
+          let distanceFactor = 1;
+
+          // 根据距离曲线类型计算距离因子
+          if (distanceCurveType === "log") {
+            distanceFactor = 1 / (Math.log(coord.distance + 1) + 1);
+          } else if (distanceCurveType === "sqrt") {
+            distanceFactor = 1 / (Math.sqrt(coord.distance) + 1);
+          }
+
+          // 计算边际贡献
+          const contribution = baseContribution * distanceFactor;
+          totalContribution += contribution;
+
+          // 记录方块类型的贡献
+          if (!blockTypeContributions[blockType]) {
+            blockTypeContributions[blockType] = 0;
+          }
+          blockTypeContributions[blockType] += contribution;
+        }
+      });
+
+      batchIndex++;
+
+      if (endIdx < coordinates.length) {
+        // 继续处理下一批
+        processNextBatch();
+      } else {
+        // 所有批次处理完成应用环境状态的额外修正
+        let environmentModifier = 0;
+        if (isInLava) {
+          environmentModifier += 30;
+        }
+        if (isInWaterOrRain) {
+          environmentModifier -= 10;
+        }
+        if (isInSnowyBiome) {
+          environmentModifier -= 5;
+        }
+        if (isNearHighTempBlocks) {
+          environmentModifier += 15;
+        }
+
+        // 综合计算最终的方块温度修正值
+        const finalModifier = totalContribution + environmentModifier;
+        resolve(Math.round(finalModifier * 10) / 10); // 四舍五入到一位小数
+      }
+    }
+
+    // 开始处理第一批
+    processNextBatch();
+  });
+}
+
+// 监听主线程消息
+if (!isMainThread && parentPort) {
+  parentPort.on("message", async (e) => {
+    const { type, data } = e;
+
+    try {
+      switch (type) {
+        case "CALCULATE_BLOCK_MODIFIER":
+          {
+            const { playerData, config } = data;
+            const blockModifier = await calculateBlockModifier(
+              playerData,
+              config
+            );
+            parentPort.postMessage({
+              type: "RESULT",
+              result: blockModifier,
+              taskId: data.taskId,
+            });
+          }
+          break;
+
+        default:
+          parentPort.postMessage({ type: "ERROR", error: "未知的任务类型" });
+      }
+    } catch (error) {
+      parentPort.postMessage({ type: "ERROR", error: error.message });
+    }
+  });
+} else {
+  module.exports = {
+    calculateBlockModifier,
+  };
+}
