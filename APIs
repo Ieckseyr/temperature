@@ -1,0 +1,83 @@
+// 导出API接口
+  exports.API = {
+    /**
+     * 获取玩家当前温度
+     * @param {Player} player - 玩家对象
+     * @returns {number} 玩家当前温度
+     */
+    getPlayerTemperature: (player) =>
+      temperatureSystem.getPlayerTemperature(player),
+    /**
+     * 获取玩家保护状态
+     * @param {Player} player - 玩家对象
+     * @returns {string} 玩家保护状态描述
+     */
+    getProtectionStatus: (player) =>
+      temperatureSystem.getProtectionStatus(player),
+    /**
+     * 增加玩家温度
+     * @param {Player} player - 玩家对象
+     * @param {number} amount - 要增加的温度值
+     * @returns {number|null} 修改后的温度，若玩家不存在则返回null
+     */
+    addPlayerTemperature: (player, amount) =>
+      temperatureSystem.addPlayerTemperature(player, amount),
+    /**
+     * 减少玩家温度
+     * @param {Player} player - 玩家对象
+     * @param {number} amount - 要减少的温度值
+     * @returns {number|null} 修改后的温度，若玩家不存在则返回null
+     */
+    reducePlayerTemperature: (player, amount) =>
+      temperatureSystem.reducePlayerTemperature(player, amount),
+    /**
+     * 设置玩家温度
+     * @param {Player} player - 玩家对象
+     * @param {number} value - 要设置的温度值
+     * @returns {number|null} 设置后的温度，若玩家不存在则返回null
+     */
+    setPlayerTemperature: (player, value) =>
+      temperatureSystem.setPlayerTemperature(player, value),
+    /**
+     * 暂停/恢复玩家温度更新
+     * @param {Player} player - 玩家对象
+     * @param {boolean} pauseState - true暂停/false恢复
+     * @returns {boolean} 操作是否成功
+     */
+    pauseTemperatureUpdate: (player, pauseState) =>
+      temperatureSystem.pauseTemperatureUpdate(player, pauseState),
+    /**
+     * 检查玩家是否受温度影响
+     * @param {Player} player - 玩家对象
+     * @returns {boolean} 是否处于有效影响状态
+     */
+    isTemperatureAffected: (player) =>
+      temperatureSystem.isTemperatureAffected(player),
+    /**
+     * 维持玩家温度范围（支持自定义区间）
+     * @param {Player} player - 玩家对象
+     * @param {number} [min=20] - 最低温度阈值（可接受负数）
+     * @param {number} [max=25] - 最高温度阈值
+     * @param {number} [duration=0] - 维持时间(毫秒，0表示永久)
+     * @param {function} [callback] - 结束回调
+     * @returns {boolean} 操作是否成功
+     */
+    maintainTemperature: (
+      player,
+      min = 20,
+      max = 25,
+      duration = 0,
+      callback
+    ) => {
+      // 自动排序温度区间
+      const sortedMin = Math.min(min, max);
+      const sortedMax = Math.max(min, max);
+      return temperatureSystem.maintainTemperature(
+        player,
+        sortedMin,
+        sortedMax,
+        duration,
+        callback
+      );
+    },
+  }
