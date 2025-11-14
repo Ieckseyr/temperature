@@ -1,0 +1,2 @@
+# temperature
+还在考虑如何给BDS添加一个符合现实又高性能的温度系统?来试试temperature,本插件基于Levilamina-lse-nodejs编写
